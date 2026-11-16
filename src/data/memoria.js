@@ -1,0 +1,1 @@
+// # Datos iniciales en memoria (Fase 1 y semilla para MongoDB)
