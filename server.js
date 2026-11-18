@@ -1,3 +1,5 @@
+import { conectarBaseDatos } from "./config/database.js";
+
 import { verificarToken } from "./config/autenticacion.js";
 
 import { parse, getOperationAST } from "graphql";
@@ -83,8 +85,19 @@ app.use((error, req, res, next) => {
     });
 });
 
-// Iniciamos el servidor
-app.listen(PORT, () => {
-    console.log(`Servidor iniciado en http://localhost:${PORT}`);
-    console.log(`GraphQL disponible en http://localhost:${PORT}/graphql`);
-});
+// Conectamos con MongoDB antes de iniciar el servidor
+async function iniciarServidor() {
+    try {
+        await conectarBaseDatos();
+
+        app.listen(PORT, () => {
+            console.log(`Servidor iniciado en http://localhost:${PORT}`);
+            console.log(`GraphQL disponible en http://localhost:${PORT}/graphql`);
+        });
+    } catch (error) {
+        console.error("Error al conectar con MongoDB:", error.message);
+        process.exit(1);
+    }
+}
+
+iniciarServidor();
