@@ -1,4 +1,4 @@
-// Importamos las funciones de almacenamiento
+
 import {
     obtenerUsuarios,
     obtenerUsuarioPorId,
@@ -9,7 +9,6 @@ import {
     obtenerIntercambios
 } from "../../models/almacenamiento.js";
 
-// Importamos los errores personalizados
 import { errorNoEncontrado, errorValidacion } from "../errores.js";
 
 /**
@@ -17,19 +16,16 @@ import { errorNoEncontrado, errorValidacion } from "../errores.js";
  */
 export const usuarioResolvers = {
     Query: {
-        // Consultamos todos los usuarios
-        usuarios: () => obtenerUsuarios(),
+        usuarios: async () => await obtenerUsuarios(),
 
-        // Buscamos un usuario por su ID
-        usuario: (_, { id }) => obtenerUsuarioPorId(id),
+        usuario: async (_, { id }) => await obtenerUsuarioPorId(id),
 
-        // Buscamos un usuario por su correo
-        usuarioPorEmail: (_, { email }) => obtenerUsuarioPorEmail(email)
+        usuarioPorEmail: async (_, { email }) =>
+            await obtenerUsuarioPorEmail(email)
     },
 
     Mutation: {
-        // Creamos un usuario
-        crearUsuario: (_, { datos }) => {
+        crearUsuario: async (_, { datos }) => {
             if (!datos.nombre.trim() || !datos.email.trim()) {
                 throw errorValidacion("El nombre y el correo electrónico son obligatorios");
             }
@@ -41,19 +37,18 @@ export const usuarioResolvers = {
                 throw errorValidacion("El correo electrónico no tiene un formato válido");
             }
 
-            if (obtenerUsuarioPorEmail(email)) {
-                throw new Error("Ya existe un usuario con ese correo electrónico");
+            if (await obtenerUsuarioPorEmail(email)) {
+                throw errorValidacion("Ya existe un usuario con ese correo electrónico");
             }
 
-            return guardarUsuario({
+            return await guardarUsuario({
                 nombre: datos.nombre.trim(),
                 email
             });
         },
 
-        // Actualizamos un usuario
-        actualizarUsuario: (_, { id, datos }) => {
-            const usuario = obtenerUsuarioPorId(id);
+        actualizarUsuario: async (_, { id, datos }) => {
+            const usuario = await obtenerUsuarioPorId(id);
 
             if (!usuario) {
                 throw errorNoEncontrado("Usuario");
@@ -70,35 +65,38 @@ export const usuarioResolvers = {
                 throw errorValidacion("El correo electrónico no tiene un formato válido");
             }
 
-            const usuarioExistente = obtenerUsuarioPorEmail(email);
+            const usuarioExistente = await obtenerUsuarioPorEmail(email);
 
             if (usuarioExistente && usuarioExistente.id !== id) {
-                throw new Error("Ese correo electrónico ya pertenece a otro usuario");
+                throw errorValidacion("Ese correo electrónico ya pertenece a otro usuario");
             }
 
-            return actualizarUsuario(id, {
+            return await actualizarUsuario(id, {
                 nombre: datos.nombre.trim(),
                 email
             });
         },
 
-        // Eliminamos un usuario si no tiene intercambios asociados
-        eliminarUsuario: (_, { id }) => {
-            const usuario = obtenerUsuarioPorId(id);
+        eliminarUsuario: async (_, { id }) => {
+            const usuario = await obtenerUsuarioPorId(id);
 
             if (!usuario) {
                 throw errorNoEncontrado("Usuario");
             }
 
-            const tieneIntercambios = obtenerIntercambios().some(
+            const intercambios = await obtenerIntercambios();
+
+            const tieneIntercambios = intercambios.some(
                 intercambio => intercambio.usuarioId === id
             );
 
             if (tieneIntercambios) {
-                throw new Error("No se puede eliminar el usuario porque tiene intercambios asociados");
+                throw errorValidacion(
+                    "No se puede eliminar el usuario porque tiene intercambios asociados"
+                );
             }
 
-            return eliminarUsuario(id);
+            return await eliminarUsuario(id);
         }
     }
 };

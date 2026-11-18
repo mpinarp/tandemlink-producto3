@@ -1,182 +1,275 @@
-// Importamos los datos iniciales
 import { usuarios, intercambios } from "./datos.js";
+import { obtenerBaseDatos } from "../config/database.js";
 
-// Creamos copias de los datos para trabajar en memoria
-let usuariosGuardados = [...usuarios];
-let intercambiosGuardados = [...intercambios];
-let seleccionadosGuardados = [];
+/**
+ * Obtiene las colecciones utilizadas por la aplicación.
+ * @returns {object} Colecciones de MongoDB.
+ */
+function obtenerColecciones() {
+    const db = obtenerBaseDatos();
+
+    return {
+        usuarios: db.collection("usuarios"),
+        intercambios: db.collection("intercambios"),
+        seleccionados: db.collection("seleccionados"),
+        contadores: db.collection("contadores")
+    };
+}
+
+/**
+ * Inicializa las colecciones, índices y datos iniciales.
+ */
+export async function inicializarAlmacenamiento() {
+    const colecciones = obtenerColecciones();
+
+    await colecciones.usuarios.createIndex({ email: 1 }, { unique: true });
+    await colecciones.seleccionados.createIndex({ id: 1 }, { unique: true });
+
+    // Insertamos los usuarios iniciales si la colección está vacía.
+    if (await colecciones.usuarios.countDocuments() === 0) {
+        const usuariosIniciales = usuarios.map(({ id, nombre, email }) => ({
+            id,
+            nombre,
+            email: email.toLowerCase()
+        }));
+
+        if (usuariosIniciales.length > 0) {
+            await colecciones.usuarios.insertMany(usuariosIniciales);
+        }
+    }
+
+    // Insertamos los intercambios iniciales si la colección está vacía.
+    if (await colecciones.intercambios.countDocuments() === 0) {
+        if (intercambios.length > 0) {
+            await colecciones.intercambios.insertMany(intercambios);
+        }
+    }
+
+    // Sincronizamos los contadores con los identificadores existentes.
+    const totalUsuarios = await colecciones.usuarios.find().toArray();
+    const totalIntercambios = await colecciones.intercambios.find().toArray();
+
+    await colecciones.contadores.updateOne(
+        { _id: "usuarios" },
+        { $max: { secuencia: Math.max(0, ...totalUsuarios.map(usuario => usuario.id)) } },
+        { upsert: true }
+    );
+
+    await colecciones.contadores.updateOne(
+        { _id: "intercambios" },
+        { $max: { secuencia: Math.max(0, ...totalIntercambios.map(intercambio => intercambio.id)) } },
+        { upsert: true }
+    );
+
+    console.log("Colecciones e índices de MongoDB preparados correctamente.");
+}
+
+/**
+ * Genera el siguiente identificador numérico.
+ * @param {string} nombre Nombre del contador.
+ * @returns {Promise<number>} Nuevo identificador.
+ */
+async function obtenerNuevoId(nombre) {
+    const { contadores } = obtenerColecciones();
+
+    const resultado = await contadores.findOneAndUpdate(
+        { _id: nombre },
+        { $inc: { secuencia: 1 } },
+        { upsert: true, returnDocument: "after" }
+    );
+
+    return resultado.secuencia;
+}
 
 // ==============================
 // GESTIÓN DE USUARIOS
 // ==============================
 
-// Obtenemos todos los usuarios
-export function obtenerUsuarios() {
-    return usuariosGuardados;
+/**
+ * Obtiene todos los usuarios.
+ * @returns {Promise<Array>} Lista de usuarios.
+ */
+export async function obtenerUsuarios() {
+    const { usuarios } = obtenerColecciones();
+    return usuarios.find().sort({ id: 1 }).toArray();
 }
 
-// Buscamos un usuario por su ID
-export function obtenerUsuarioPorId(id) {
-    return usuariosGuardados.find(usuario => usuario.id === id);
+/**
+ * Busca un usuario por su identificador.
+ * @param {number} id Identificador del usuario.
+ * @returns {Promise<object|null>} Usuario encontrado.
+ */
+export async function obtenerUsuarioPorId(id) {
+    const { usuarios } = obtenerColecciones();
+    return usuarios.findOne({ id });
 }
 
-// Buscamos un usuario por su correo
-export function obtenerUsuarioPorEmail(email) {
-    return usuariosGuardados.find(
-        usuario => usuario.email.toLowerCase() === email.toLowerCase()
-    );
+/**
+ * Busca un usuario por su correo electrónico.
+ * @param {string} email Correo electrónico.
+ * @returns {Promise<object|null>} Usuario encontrado.
+ */
+export async function obtenerUsuarioPorEmail(email) {
+    const { usuarios } = obtenerColecciones();
+
+    return usuarios.findOne({
+        email: email.trim().toLowerCase()
+    });
 }
 
-// Guardamos un usuario nuevo
-export function guardarUsuario(usuario) {
-    const nuevoId = usuariosGuardados.length > 0
-        ? Math.max(...usuariosGuardados.map(usuario => usuario.id)) + 1
-        : 1;
+/**
+ * Guarda un usuario nuevo.
+ * @param {object} usuario Datos del usuario.
+ * @returns {Promise<object>} Usuario creado.
+ */
+export async function guardarUsuario(usuario) {
+    const { usuarios } = obtenerColecciones();
+    const nuevoId = await obtenerNuevoId("usuarios");
 
     const nuevoUsuario = {
         id: nuevoId,
         ...usuario
     };
 
-    usuariosGuardados.push(nuevoUsuario);
+    await usuarios.insertOne(nuevoUsuario);
 
     return nuevoUsuario;
 }
 
-// Actualizamos los datos de un usuario
-export function actualizarUsuario(id, datosActualizados) {
-    const indice = usuariosGuardados.findIndex(
-        usuario => usuario.id === id
+/**
+ * Actualiza los datos de un usuario.
+ * @param {number} id Identificador del usuario.
+ * @param {object} datosActualizados Nuevos datos.
+ * @returns {Promise<object|null>} Usuario actualizado.
+ */
+export async function actualizarUsuario(id, datosActualizados) {
+    const { usuarios } = obtenerColecciones();
+
+    return usuarios.findOneAndUpdate(
+        { id },
+        { $set: datosActualizados },
+        { returnDocument: "after" }
     );
-
-    if (indice === -1) return null;
-
-    usuariosGuardados[indice] = {
-        ...usuariosGuardados[indice],
-        ...datosActualizados,
-        id
-    };
-
-    return usuariosGuardados[indice];
 }
 
-// Eliminamos un usuario por su ID
-export function eliminarUsuario(id) {
-    const existe = usuariosGuardados.some(usuario => usuario.id === id);
+/**
+ * Elimina un usuario.
+ * @param {number} id Identificador del usuario.
+ * @returns {Promise<boolean>} Resultado de la eliminación.
+ */
+export async function eliminarUsuario(id) {
+    const { usuarios } = obtenerColecciones();
+    const resultado = await usuarios.deleteOne({ id });
 
-    if (!existe) {
-        return false;
-    }
-
-    usuariosGuardados = usuariosGuardados.filter(usuario => usuario.id !== id);
-
-    return true;
+    return resultado.deletedCount > 0;
 }
 
 // ==============================
 // GESTIÓN DE INTERCAMBIOS
 // ==============================
 
-// Obtenemos todos los intercambios
-export function obtenerIntercambios() {
-    return intercambiosGuardados;
+/**
+ * Obtiene todos los intercambios.
+ * @returns {Promise<Array>} Lista de intercambios.
+ */
+export async function obtenerIntercambios() {
+    const { intercambios } = obtenerColecciones();
+    return intercambios.find().sort({ id: 1 }).toArray();
 }
 
-// Buscamos un intercambio por su ID
-export function obtenerIntercambioPorId(id) {
-    return intercambiosGuardados.find(intercambio => intercambio.id === id);
+/**
+ * Busca un intercambio por su identificador.
+ * @param {number} id Identificador del intercambio.
+ * @returns {Promise<object|null>} Intercambio encontrado.
+ */
+export async function obtenerIntercambioPorId(id) {
+    const { intercambios } = obtenerColecciones();
+    return intercambios.findOne({ id });
 }
 
-// Guardamos un intercambio nuevo
-export function guardarIntercambio(intercambio) {
-    const nuevoId = intercambiosGuardados.length > 0
-        ? Math.max(...intercambiosGuardados.map(intercambio => intercambio.id)) + 1
-        : 1;
+/**
+ * Guarda un intercambio nuevo.
+ * @param {object} intercambio Datos del intercambio.
+ * @returns {Promise<object>} Intercambio creado.
+ */
+export async function guardarIntercambio(intercambio) {
+    const { intercambios } = obtenerColecciones();
+    const nuevoId = await obtenerNuevoId("intercambios");
 
     const nuevoIntercambio = {
         id: nuevoId,
         ...intercambio
     };
 
-    intercambiosGuardados.push(nuevoIntercambio);
+    await intercambios.insertOne(nuevoIntercambio);
 
     return nuevoIntercambio;
 }
 
-// Actualizamos un intercambio existente
-export function actualizarIntercambio(id, datosActualizados) {
-    const indice = intercambiosGuardados.findIndex(
-        intercambio => intercambio.id === id
+/**
+ * Actualiza un intercambio.
+ * @param {number} id Identificador del intercambio.
+ * @param {object} datosActualizados Nuevos datos.
+ * @returns {Promise<object|null>} Intercambio actualizado.
+ */
+export async function actualizarIntercambio(id, datosActualizados) {
+    const { intercambios } = obtenerColecciones();
+
+    return intercambios.findOneAndUpdate(
+        { id },
+        { $set: datosActualizados },
+        { returnDocument: "after" }
     );
-
-    if (indice === -1) {
-        return null;
-    }
-
-    intercambiosGuardados[indice] = {
-        ...intercambiosGuardados[indice],
-        ...datosActualizados,
-        id
-    };
-
-    return intercambiosGuardados[indice];
 }
 
-// Eliminamos un intercambio por su ID
-export function eliminarIntercambio(id) {
-    const existe = intercambiosGuardados.some(
-        intercambio => intercambio.id === id
-    );
+/**
+ * Elimina un intercambio.
+ * @param {number} id Identificador del intercambio.
+ * @returns {Promise<boolean>} Resultado de la eliminación.
+ */
+export async function eliminarIntercambio(id) {
+    const { intercambios } = obtenerColecciones();
+    const resultado = await intercambios.deleteOne({ id });
 
-    if (!existe) {
-        return false;
-    }
-
-    intercambiosGuardados = intercambiosGuardados.filter(
-        intercambio => intercambio.id !== id
-    );
-
-    return true;
+    return resultado.deletedCount > 0;
 }
+
 // ==============================
 // GESTIÓN DE INTERCAMBIOS SELECCIONADOS
 // ==============================
 
-// Obtenemos los intercambios seleccionados
-export function obtenerSeleccionados() {
-    return seleccionadosGuardados;
+/**
+ * Obtiene los intercambios seleccionados.
+ * @returns {Promise<Array>} Lista de seleccionados.
+ */
+export async function obtenerSeleccionados() {
+    const { seleccionados } = obtenerColecciones();
+    return seleccionados.find().sort({ id: 1 }).toArray();
 }
 
-// Guardamos un intercambio seleccionado
-export function guardarSeleccionado(intercambio) {
-    const existe = seleccionadosGuardados.some(
-        seleccionado => seleccionado.id === intercambio.id
+/**
+ * Guarda un intercambio como seleccionado sin duplicarlo.
+ * @param {object} intercambio Intercambio seleccionado.
+ * @returns {Promise<object>} Intercambio guardado.
+ */
+export async function guardarSeleccionado(intercambio) {
+    const { seleccionados } = obtenerColecciones();
+
+    return seleccionados.findOneAndUpdate(
+        { id: intercambio.id },
+        { $setOnInsert: intercambio },
+        { upsert: true, returnDocument: "after" }
     );
-
-    if (existe) {
-        return seleccionadosGuardados.find(
-            seleccionado => seleccionado.id === intercambio.id
-        );
-    }
-
-    seleccionadosGuardados.push(intercambio);
-
-    return intercambio;
 }
 
-// Eliminamos un intercambio seleccionado
-export function eliminarSeleccionado(id) {
-    const existe = seleccionadosGuardados.some(
-        seleccionado => seleccionado.id === id
-    );
+/**
+ * Elimina un intercambio de los seleccionados.
+ * @param {number} id Identificador del intercambio.
+ * @returns {Promise<boolean>} Resultado de la eliminación.
+ */
+export async function eliminarSeleccionado(id) {
+    const { seleccionados } = obtenerColecciones();
+    const resultado = await seleccionados.deleteOne({ id });
 
-    if (!existe) {
-        return false;
-    }
-
-    seleccionadosGuardados = seleccionadosGuardados.filter(
-        seleccionado => seleccionado.id !== id
-    );
-
-    return true;
+    return resultado.deletedCount > 0;
 }

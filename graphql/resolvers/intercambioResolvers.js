@@ -1,4 +1,4 @@
-// Importamos las funciones de almacenamiento
+
 import {
     obtenerIntercambios,
     obtenerIntercambioPorId,
@@ -11,7 +11,6 @@ import {
     eliminarSeleccionado
 } from "../../models/almacenamiento.js";
 
-// Importamos los errores personalizados
 import { errorNoEncontrado, errorValidacion } from "../errores.js";
 
 /**
@@ -19,19 +18,16 @@ import { errorNoEncontrado, errorValidacion } from "../errores.js";
  */
 export const intercambioResolvers = {
     Query: {
-        // Consultamos todos los intercambios
-        intercambios: () => obtenerIntercambios(),
+        intercambios: async () => await obtenerIntercambios(),
 
-        // Buscamos un intercambio por su ID
-        intercambio: (_, { id }) => obtenerIntercambioPorId(id),
+        intercambio: async (_, { id }) =>
+            await obtenerIntercambioPorId(id),
 
-        // Consultamos los intercambios seleccionados
-        seleccionados: () => obtenerSeleccionados()
+        seleccionados: async () => await obtenerSeleccionados()
     },
 
     Mutation: {
-        // Creamos un intercambio
-        crearIntercambio: (_, { datos }) => {
+        crearIntercambio: async (_, { datos }) => {
             const camposObligatorios = [
                 datos.tipo,
                 datos.idiomaOfrecido,
@@ -45,21 +41,20 @@ export const intercambioResolvers = {
                 throw errorValidacion("Todos los campos del intercambio son obligatorios");
             }
 
-            const usuario = obtenerUsuarioPorId(datos.usuarioId);
+            const usuario = await obtenerUsuarioPorId(datos.usuarioId);
 
             if (!usuario) {
                 throw errorNoEncontrado("Usuario");
             }
 
-            return guardarIntercambio({
+            return await guardarIntercambio({
                 ...datos,
                 fechaCreacion: datos.fechaCreacion.trim()
             });
         },
 
-        // Actualizamos un intercambio
-        actualizarIntercambio: (_, { id, datos }) => {
-            const intercambio = obtenerIntercambioPorId(id);
+        actualizarIntercambio: async (_, { id, datos }) => {
+            const intercambio = await obtenerIntercambioPorId(id);
 
             if (!intercambio) {
                 throw errorNoEncontrado("Intercambio");
@@ -78,41 +73,39 @@ export const intercambioResolvers = {
                 throw errorValidacion("Todos los campos del intercambio son obligatorios");
             }
 
-            const usuario = obtenerUsuarioPorId(datos.usuarioId);
+            const usuario = await obtenerUsuarioPorId(datos.usuarioId);
 
             if (!usuario) {
                 throw errorNoEncontrado("Usuario");
             }
 
-            return actualizarIntercambio(id, {
+            return await actualizarIntercambio(id, {
                 ...datos,
                 fechaCreacion: datos.fechaCreacion.trim()
             });
         },
 
-        // Eliminamos un intercambio
-        eliminarIntercambio: (_, { id }) => {
-            const intercambio = obtenerIntercambioPorId(id);
+        eliminarIntercambio: async (_, { id }) => {
+            const intercambio = await obtenerIntercambioPorId(id);
 
             if (!intercambio) {
                 throw errorNoEncontrado("Intercambio");
             }
 
-            return eliminarIntercambio(id);
+            return await eliminarIntercambio(id);
         },
 
-        // Guardamos un intercambio como seleccionado
-        guardarSeleccionado: (_, { id }) => {
-            const intercambio = obtenerIntercambioPorId(id);
+        guardarSeleccionado: async (_, { id }) => {
+            const intercambio = await obtenerIntercambioPorId(id);
 
             if (!intercambio) {
                 throw errorNoEncontrado("Intercambio");
             }
 
-            return guardarSeleccionado(intercambio);
+            return await guardarSeleccionado(intercambio);
         },
 
-        // Eliminamos un intercambio seleccionado
-        eliminarSeleccionado: (_, { id }) => eliminarSeleccionado(id)
+        eliminarSeleccionado: async (_, { id }) =>
+            await eliminarSeleccionado(id)
     }
 };

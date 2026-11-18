@@ -1,8 +1,7 @@
-import { conectarBaseDatos } from "./config/database.js";
-
 import { verificarToken } from "./config/autenticacion.js";
-
 import { parse, getOperationAST } from "graphql";
+import { conectarBaseDatos } from "./config/database.js";
+import { inicializarAlmacenamiento } from "./models/almacenamiento.js";
 
 // Importamos Express
 import express from "express";
@@ -89,6 +88,7 @@ app.use((error, req, res, next) => {
 async function iniciarServidor() {
     try {
         await conectarBaseDatos();
+        await inicializarAlmacenamiento();
 
         app.listen(PORT, () => {
             console.log(`Servidor iniciado en http://localhost:${PORT}`);

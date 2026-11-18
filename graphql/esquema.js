@@ -1,24 +1,6 @@
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { resolvers } from "./resolvers/index.js";
 
-// Importamos las funciones de almacenamiento
-import {
-    obtenerUsuarios,
-    obtenerUsuarioPorId,
-    guardarUsuario,
-    actualizarUsuario,
-    eliminarUsuario,
-    obtenerIntercambios,
-    obtenerIntercambioPorId,
-    guardarIntercambio,
-    actualizarIntercambio,
-    eliminarIntercambio,
-    obtenerUsuarioPorEmail,
-    obtenerSeleccionados,
-    guardarSeleccionado,
-    eliminarSeleccionado
-} from "../models/almacenamiento.js";
-
 // Definimos los tipos y las consultas GraphQL
 const typeDefs = `
     # Tipo que representa un usuario
