@@ -11,6 +11,7 @@ import { createHandler } from "graphql-http/lib/use/express";
 import { schema } from "./graphql/schema.js";
 import { resolvers } from "./graphql/resolvers.js";
 import { conectarDB } from "./config/db.js";
+import { verificarToken } from "./graphql/middlewares/authMiddleware.js";
 
 
 const app = express();
@@ -21,10 +22,16 @@ const PORT = process.env.PORT || 3000; // Puerto en el que se ejecutará el serv
 app.use(express.json());
 
 app.use("/api", intercambiosRoutes); // Se monta el router de intercambios en la ruta base /api
-// Endpoint único de GraphQL sobre ExpressJS
-app.all("/graphql", createHandler({
+// Endpoint único de GraphQL sobre ExpressJS con middleware de autenticación JWT
+app.all(
+    "/graphql", 
+    verificarToken,
+    createHandler({
     schema: schema,
-    rootValue: resolvers
+    rootValue: resolvers,
+    context: (req) => ({ 
+        usuario : req.raw.usuario
+        })
 }));
 
 app.get("/", (req, res) => { res.json({ message: "Bienvenido al servidor Backend de TandemLink" }); }); // Ruta raíz que devuelve un mensaje de bienvenida en formato JSON
