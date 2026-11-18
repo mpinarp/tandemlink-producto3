@@ -10,6 +10,8 @@ import intercambiosRoutes from "./routes/intercambiosRoutes.js";
 import { createHandler } from "graphql-http/lib/use/express";
 import { schema } from "./graphql/schema.js";
 import { resolvers } from "./graphql/resolvers.js";
+import { conectarDB } from "./config/db.js";
+
 
 const app = express();
 
@@ -30,6 +32,13 @@ app.get("/", (req, res) => { res.json({ message: "Bienvenido al servidor Backend
 app.use((err, req, res, next) => { res.status(500).json({ error: "Error interno del servidor", detalle: err.message }); }); // Middleware de manejo de errores que captura cualquier error no manejado y devuelve un código HTTP 500 Internal Server Error con un mensaje de error
 
 // Inicia el servidor y escucha en el puerto especificado, mostrando un mensaje en la consola indicando que el servidor está activo y en qué URL se puede acceder.
-app.listen(PORT, () => { console.log(`Servidor backend de TandemLink escuchando en http://localhost:${PORT}`); });
 
+async function iniciarServidor() {
+    await conectarDB();
+    app.listen(PORT, () => {
+        console.log(`Servidor TandemLink escuchando en http://localhost:${PORT}`);
+    });
+}
+
+iniciarServidor();
 
