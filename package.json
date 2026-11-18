@@ -1,27 +1,24 @@
 {
   "name": "tandemlink-producto3",
   "version": "1.0.0",
-  "description": "Backend TandemLink - Producto 3 UOC",
-  "main": "src/index.js",
-  "type": "module",
+  "description": "API backend de TandemLink con Express y GraphQL",
+  "main": "server.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mpinarp/tandemlink-producto3.git"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "dev": "node --watch server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/mpinarp/tandemlink-producto3/issues"
-  },
-  "homepage": "https://github.com/mpinarp/tandemlink-producto3#readme",
+  "type": "module",
   "dependencies": {
+    "@graphql-tools/schema": "^11.0.9",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^18.0.10",
     "express": "^5.3.0",
     "graphql": "^17.1.0",
-    "graphql-http": "^1.23.1"
+    "graphql-http": "^1.23.1",
+    "jsonwebtoken": "^9.0.3"
   }
 }
