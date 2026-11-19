@@ -1,23 +1,39 @@
 
-// Almacenamiento temporal de los datos de TandemLink.
-// Más adelante sustituir estas estructuras por MongoDB.
+import {
+    usuariosIniciales,
+    intercambiosIniciales
+} from './datosIniciales.js';
 
-// Usuarios registrados en la aplicación.
-export const usuarios = [];
+// ======================================================
+// ALMACENAMIENTO TEMPORAL EN MEMORIA
+// ======================================================
 
-// Intercambios publicados en la aplicación.
-export const intercambios = [];
+// Cargamos los datos iniciales del Producto 2.
+// Usamos copias para no modificar los datos originales.
+export const usuarios = usuariosIniciales.map(usuario => ({ ...usuario }));
+export const intercambios = intercambiosIniciales.map(intercambio => ({ ...intercambio }));
 
-// Contador para generar identificadores únicos.
-let siguienteUsuarioId = 1;
-let siguienteIntercambioId = 1;
+// Array donde almacenaremos los intercambios seleccionados.
+export const seleccionados = [];
 
-// Genera el identificador del siguiente usuario.
+// ======================================================
+// CONTADORES DE IDENTIFICADORES
+// ======================================================
+
+// Calculamos el siguiente ID a partir de los datos iniciales.
+// Así evitamos repetir los identificadores 1, 2 y 3.
+let siguienteUsuarioId =
+    Math.max(0, ...usuarios.map(usuario => Number(usuario.id))) + 1;
+
+let siguienteIntercambioId =
+    Math.max(0, ...intercambios.map(intercambio => Number(intercambio.id))) + 1;
+
+// Genera un identificador numérico para cada nuevo usuario.
 export function generarUsuarioId() {
-    return String(siguienteUsuarioId++);
+    return siguienteUsuarioId++;
 }
 
-// Genera el identificador del siguiente intercambio.
+// Genera un identificador numérico para cada nuevo intercambio.
 export function generarIntercambioId() {
-    return String(siguienteIntercambioId++);
+    return siguienteIntercambioId++;
 }

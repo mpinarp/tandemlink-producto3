@@ -62,8 +62,10 @@ export const schema = buildSchema(`
     type Query {
         usuarios: [Usuario!]!
         usuario(id: ID!): Usuario
+        usuarioPorEmail(email: String!): Usuario
         intercambios: [Intercambio!]!
         intercambio(id: ID!): Intercambio
+        seleccionados: [Intercambio!]!
     }
 
     # Operaciones para modificar los datos.
@@ -75,5 +77,8 @@ export const schema = buildSchema(`
         crearIntercambio(datos: IntercambioInput!): Intercambio!
         editarIntercambio(id: ID!, datos: IntercambioActualizarInput!): Intercambio!
         eliminarIntercambio(id: ID!): Intercambio!
+
+        guardarSeleccionado(id: ID!): Intercambio!
+        eliminarSeleccionado(id: ID!): Intercambio!
     }
 `);

@@ -3,6 +3,7 @@
 import {
     consultarUsuarios,
     buscarUsuario,
+    buscarUsuarioPorEmail,
     crearUsuario,
     editarUsuario,
     eliminarUsuario
@@ -16,6 +17,13 @@ import {
     editarIntercambio,
     eliminarIntercambio
 } from '../controllers/intercambiosController.js';
+
+// Importamos las funciones del controlador de intercambios seleccionados.
+import {
+    consultarSeleccionados,
+    guardarSeleccionado,
+    eliminarSeleccionado
+} from '../controllers/seleccionadosController.js';
 
 // Eliminamos la contraseña antes de devolver un usuario.
 function usuarioPublico(usuario) {
@@ -32,6 +40,8 @@ export const resolvers = {
     usuarios: () => consultarUsuarios().map(usuarioPublico),
 
     usuario: ({ id }) => usuarioPublico(buscarUsuario(id)),
+
+    usuarioPorEmail: ({ email }) => usuarioPublico(buscarUsuarioPorEmail(email)),
 
     // Consultas de intercambios.
     intercambios: () => consultarIntercambios(),
@@ -56,5 +66,14 @@ export const resolvers = {
 
     editarIntercambio: ({ id, datos }) => editarIntercambio(id, datos),
 
-    eliminarIntercambio: ({ id }) => eliminarIntercambio(id)
+    eliminarIntercambio: ({ id }) => eliminarIntercambio(id),
+
+    // Consultar todos los intercambios favoritos.
+    seleccionados: () => consultarSeleccionados(),
+
+    // Guardar un intercambio como favorito.
+    guardarSeleccionado: ({ id }) => guardarSeleccionado(id),
+
+    // Eliminar un intercambio de favoritos.
+    eliminarSeleccionado: ({ id }) => eliminarSeleccionado(id),
 };

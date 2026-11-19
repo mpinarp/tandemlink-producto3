@@ -1,23 +1,71 @@
 
-// Importamos los datos y la función para generar identificadores.
 import {
+    usuarios,
     intercambios,
+    seleccionados,
     generarIntercambioId
 } from '../data/memoria.js';
+
+// ======================================================
+// CONSULTAR Y BUSCAR INTERCAMBIOS
+// ======================================================
 
 // Devuelve todos los intercambios publicados.
 export function consultarIntercambios() {
     return intercambios;
 }
 
-// Busca un intercambio por su identificador.
+// Busca un intercambio por su identificador numérico.
 export function buscarIntercambio(id) {
     return intercambios.find(
-        intercambio => intercambio.id === String(id)
+        intercambio => intercambio.id === Number(id)
     );
 }
 
-// Crea un intercambio nuevo.
+// ======================================================
+// VALIDACIONES
+// ======================================================
+
+// Comprueba y normaliza el tipo de intercambio.
+function validarTipo(tipo) {
+    const valor = tipo?.trim().toLowerCase();
+
+    if (valor === 'oferta') return 'oferta';
+
+    // Admitimos la palabra con y sin tilde.
+    if (valor === 'petición' || valor === 'peticion') {
+        return 'petición';
+    }
+
+    throw new Error('El tipo debe ser oferta o petición');
+}
+
+// Comprueba y normaliza la modalidad.
+function validarModalidad(modalidad) {
+    const valor = modalidad?.trim().toLowerCase();
+
+    if (valor === 'presencial') return 'Presencial';
+    if (valor === 'online') return 'Online';
+    if (valor === 'ambas') return 'Ambas';
+
+    throw new Error('La modalidad debe ser presencial, online o ambas');
+}
+
+// Comprueba que el usuario asociado exista.
+function validarUsuario(usuarioId) {
+    const usuarioExiste = usuarios.some(
+        usuario => usuario.id === Number(usuarioId)
+    );
+
+    if (!usuarioExiste) {
+        throw new Error('El usuario asociado no existe');
+    }
+}
+
+// ======================================================
+// CREAR INTERCAMBIOS
+// ======================================================
+
 export function crearIntercambio(datos) {
     const {
         tipo,
@@ -31,35 +79,31 @@ export function crearIntercambio(datos) {
     // Comprobamos los campos obligatorios.
     if (
         !tipo ||
-        !usuarioId ||
-        !idiomaOfrecido ||
-        !idiomaBuscado ||
+        usuarioId === undefined ||
+        usuarioId === null ||
+        !idiomaOfrecido?.trim() ||
+        !idiomaBuscado?.trim() ||
         !modalidad ||
-        !descripcion
+        !descripcion?.trim()
     ) {
         throw new Error('Todos los campos del intercambio son obligatorios');
     }
 
-    // Validamos el tipo de intercambio.
-    if (!['oferta', 'peticion'].includes(tipo.toLowerCase())) {
-        throw new Error('El tipo debe ser oferta o petición');
-    }
-
-    // Validamos la modalidad.
-    if (!['presencial', 'online', 'ambas'].includes(modalidad.toLowerCase())) {
-        throw new Error('La modalidad debe ser presencial, online o ambas');
-    }
+    // Validamos el tipo, la modalidad y el usuario.
+    const tipoValidado = validarTipo(tipo);
+    const modalidadValidada = validarModalidad(modalidad);
+    validarUsuario(usuarioId);
 
     // Creamos el nuevo intercambio.
     const nuevoIntercambio = {
         id: generarIntercambioId(),
-        tipo: tipo.toLowerCase(),
-        usuarioId: String(usuarioId),
+        tipo: tipoValidado,
+        usuarioId: Number(usuarioId),
         idiomaOfrecido: idiomaOfrecido.trim(),
         idiomaBuscado: idiomaBuscado.trim(),
-        modalidad: modalidad.toLowerCase(),
+        modalidad: modalidadValidada,
         descripcion: descripcion.trim(),
-        fechaCreacion: new Date().toISOString()
+        fechaCreacion: new Date().toISOString().split('T')[0]
     };
 
     intercambios.push(nuevoIntercambio);
@@ -67,7 +111,10 @@ export function crearIntercambio(datos) {
     return nuevoIntercambio;
 }
 
-// Modifica los datos de un intercambio existente.
+// ======================================================
+// EDITAR INTERCAMBIOS
+// ======================================================
+
 export function editarIntercambio(id, datos) {
     const intercambio = buscarIntercambio(id);
 
@@ -77,18 +124,13 @@ export function editarIntercambio(id, datos) {
 
     // Actualizamos el tipo si se ha proporcionado.
     if (datos.tipo !== undefined) {
-        const tipo = datos.tipo.toLowerCase();
-
-        if (!['oferta', 'petición'].includes(tipo)) {
-            throw new Error('El tipo debe ser oferta o petición');
-        }
-
-        intercambio.tipo = tipo;
+        intercambio.tipo = validarTipo(datos.tipo);
     }
 
-    // Actualizamos el identificador del usuario.
+    // Actualizamos el usuario asociado.
     if (datos.usuarioId !== undefined) {
-        intercambio.usuarioId = String(datos.usuarioId);
+        validarUsuario(datos.usuarioId);
+        intercambio.usuarioId = Number(datos.usuarioId);
     }
 
     // Actualizamos los idiomas.
@@ -96,6 +138,7 @@ export function editarIntercambio(id, datos) {
         if (!datos.idiomaOfrecido.trim()) {
             throw new Error('El idioma ofrecido no puede estar vacío');
         }
+
         intercambio.idiomaOfrecido = datos.idiomaOfrecido.trim();
     }
 
@@ -103,18 +146,13 @@ export function editarIntercambio(id, datos) {
         if (!datos.idiomaBuscado.trim()) {
             throw new Error('El idioma buscado no puede estar vacío');
         }
+
         intercambio.idiomaBuscado = datos.idiomaBuscado.trim();
     }
 
     // Actualizamos la modalidad.
     if (datos.modalidad !== undefined) {
-        const modalidad = datos.modalidad.toLowerCase();
-
-        if (!['presencial', 'online', 'ambas'].includes(modalidad)) {
-            throw new Error('La modalidad debe ser presencial, online o ambas');
-        }
-
-        intercambio.modalidad = modalidad;
+        intercambio.modalidad = validarModalidad(datos.modalidad);
     }
 
     // Actualizamos la descripción.
@@ -122,22 +160,36 @@ export function editarIntercambio(id, datos) {
         if (!datos.descripcion.trim()) {
             throw new Error('La descripción no puede estar vacía');
         }
+
         intercambio.descripcion = datos.descripcion.trim();
     }
 
     return intercambio;
 }
 
-// Elimina un intercambio por su identificador.
+// ======================================================
+// ELIMINAR INTERCAMBIOS
+// ======================================================
+
 export function eliminarIntercambio(id) {
+    // Buscamos el intercambio que queremos eliminar.
     const indice = intercambios.findIndex(
-        intercambio => intercambio.id === String(id)
+        intercambio => intercambio.id === Number(id)
     );
 
     if (indice === -1) {
         throw new Error('Intercambio no encontrado');
     }
 
+    // Eliminamos también el intercambio de favoritos, si existe.
+    const indiceSeleccionado = seleccionados.findIndex(
+        item => item.id === Number(id)
+    );
+
+    if (indiceSeleccionado !== -1) {
+        seleccionados.splice(indiceSeleccionado, 1);
+    }
+
+    // Eliminamos y devolvemos el intercambio.
     return intercambios.splice(indice, 1)[0];
 }
-
