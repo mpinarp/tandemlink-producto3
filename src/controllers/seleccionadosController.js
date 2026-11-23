@@ -1,58 +1,77 @@
 
-import { seleccionados, intercambios } from '../data/memoria.js';
+import { obtenerDB } from '../config/db.js';
 
 // ======================================================
 // CONSULTAR TODOS LOS INTERCAMBIOS SELECCIONADOS
 // ======================================================
 
-export function consultarSeleccionados() {
-    return seleccionados;
+export async function consultarSeleccionados() {
+    const db = obtenerDB();
+
+    return await db.collection('seleccionados')
+        .find({})
+        .toArray();
 }
 
 // ======================================================
 // GUARDAR UN INTERCAMBIO COMO FAVORITO
 // ======================================================
 
-export function guardarSeleccionado(id) {
-    // Buscamos el intercambio original por su ID numérico.
-    const intercambio = intercambios.find(
-        item => item.id === Number(id)
-    );
+
+export async function guardarSeleccionado(id) {
+    const db = obtenerDB();
+
+    const intercambios = db.collection('intercambios');
+    const seleccionados = db.collection('seleccionados');
+
+    // Buscamos el intercambio original.
+    const intercambio = await intercambios.findOne({
+        id: Number(id)
+    });
 
     if (!intercambio) {
         throw new Error('El intercambio no existe.');
     }
 
-    // Evitamos guardar el mismo favorito varias veces.
-    const yaExiste = seleccionados.some(
-        item => item.id === intercambio.id
+    // Preparamos una copia sin el identificador interno de MongoDB.
+    const { _id, ...datosIntercambio } = intercambio;
+
+    const seleccionado = { ...datosIntercambio };
+
+    // Guardamos o actualizamos el favorito.
+    // Si ya existe, sustituimos sus datos.
+    await seleccionados.replaceOne(
+        { id: intercambio.id },
+        seleccionado,
+        { upsert: true }
     );
-
-    if (yaExiste) {
-        throw new Error('El intercambio ya está en favoritos.');
-    }
-
-    // Guardamos una copia completa del intercambio.
-    const seleccionado = { ...intercambio };
-
-    seleccionados.push(seleccionado);
 
     return seleccionado;
 }
+
 
 // ======================================================
 // ELIMINAR UN INTERCAMBIO DE FAVORITOS
 // ======================================================
 
-export function eliminarSeleccionado(id) {
-    const indice = seleccionados.findIndex(
-        item => item.id === Number(id)
-    );
+export async function eliminarSeleccionado(id) {
+    const db = obtenerDB();
+    const coleccion = db.collection('seleccionados');
 
-    if (indice === -1) {
+    // Buscamos el favorito que queremos eliminar.
+    const seleccionado = await coleccion.findOne({
+        id: Number(id)
+    });
+
+    if (!seleccionado) {
         throw new Error('El intercambio no está en favoritos.');
     }
 
-    // Eliminamos y devolvemos el intercambio seleccionado.
-    return seleccionados.splice(indice, 1)[0];
+    // Eliminamos el favorito de MongoDB.
+    await coleccion.deleteOne({
+        id: Number(id)
+    });
+
+    // Devolvemos el intercambio eliminado de favoritos.
+    return seleccionado;
 }

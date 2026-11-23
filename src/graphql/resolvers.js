@@ -36,44 +36,70 @@ function usuarioPublico(usuario) {
 
 // Conectamos las consultas y mutaciones con sus controladores.
 export const resolvers = {
-    // Consultas de usuarios.
-    usuarios: () => consultarUsuarios().map(usuarioPublico),
 
-    usuario: ({ id }) => usuarioPublico(buscarUsuario(id)),
+    // ======================================================
+    // CONSULTAS DE USUARIOS
+    // ======================================================
 
-    usuarioPorEmail: ({ email }) => usuarioPublico(buscarUsuarioPorEmail(email)),
+    usuarios: async () => {
+        const usuarios = await consultarUsuarios();
+        return usuarios.map(usuarioPublico);
+    },
 
-    // Consultas de intercambios.
+    usuario: async ({ id }) => {
+        const usuario = await buscarUsuario(id);
+        return usuarioPublico(usuario);
+    },
+
+    usuarioPorEmail: async ({ email }) => {
+        const usuario = await buscarUsuarioPorEmail(email);
+        return usuarioPublico(usuario);
+    },
+
+    // ======================================================
+    // CONSULTAS DE INTERCAMBIOS
+    // ======================================================
+
     intercambios: () => consultarIntercambios(),
 
     intercambio: ({ id }) => buscarIntercambio(id),
 
-    // Mutaciones de usuarios.
-    crearUsuario: ({ datos }) => {
-        return usuarioPublico(crearUsuario(datos));
+    // ======================================================
+    // MUTACIONES DE USUARIOS
+    // ======================================================
+
+    crearUsuario: async ({ datos }) => {
+        const usuario = await crearUsuario(datos);
+        return usuarioPublico(usuario);
     },
 
-    editarUsuario: ({ id, datos }) => {
-        return usuarioPublico(editarUsuario(id, datos));
+    editarUsuario: async ({ id, datos }) => {
+        const usuario = await editarUsuario(id, datos);
+        return usuarioPublico(usuario);
     },
 
-    eliminarUsuario: ({ id }) => {
-        return usuarioPublico(eliminarUsuario(id));
+    eliminarUsuario: async ({ id }) => {
+        const usuario = await eliminarUsuario(id);
+        return usuarioPublico(usuario);
     },
 
-    // Mutaciones de intercambios.
+    // ======================================================
+    // MUTACIONES DE INTERCAMBIOS
+    // ======================================================
+
     crearIntercambio: ({ datos }) => crearIntercambio(datos),
 
     editarIntercambio: ({ id, datos }) => editarIntercambio(id, datos),
 
     eliminarIntercambio: ({ id }) => eliminarIntercambio(id),
 
-    // Consultar todos los intercambios favoritos.
+    // ======================================================
+    // CONSULTAS Y MUTACIONES DE FAVORITOS
+    // ======================================================
+
     seleccionados: () => consultarSeleccionados(),
 
-    // Guardar un intercambio como favorito.
     guardarSeleccionado: ({ id }) => guardarSeleccionado(id),
 
-    // Eliminar un intercambio de favoritos.
-    eliminarSeleccionado: ({ id }) => eliminarSeleccionado(id),
+    eliminarSeleccionado: ({ id }) => eliminarSeleccionado(id)
 };

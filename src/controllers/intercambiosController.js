@@ -1,25 +1,26 @@
 
-import {
-    usuarios,
-    intercambios,
-    seleccionados,
-    generarIntercambioId
-} from '../data/memoria.js';
+import { obtenerDB } from '../config/db.js';
 
 // ======================================================
 // CONSULTAR Y BUSCAR INTERCAMBIOS
 // ======================================================
 
-// Devuelve todos los intercambios publicados.
-export function consultarIntercambios() {
-    return intercambios;
+// Devuelve todos los intercambios de MongoDB.
+export async function consultarIntercambios() {
+    const db = obtenerDB();
+
+    return await db.collection('intercambios')
+        .find({})
+        .toArray();
 }
 
 // Busca un intercambio por su identificador numérico.
-export function buscarIntercambio(id) {
-    return intercambios.find(
-        intercambio => intercambio.id === Number(id)
-    );
+export async function buscarIntercambio(id) {
+    const db = obtenerDB();
+
+    return await db.collection('intercambios').findOne({
+        id: Number(id)
+    });
 }
 
 // ======================================================
@@ -51,11 +52,13 @@ function validarModalidad(modalidad) {
     throw new Error('La modalidad debe ser presencial, online o ambas');
 }
 
-// Comprueba que el usuario asociado exista.
-function validarUsuario(usuarioId) {
-    const usuarioExiste = usuarios.some(
-        usuario => usuario.id === Number(usuarioId)
-    );
+// Comprueba de forma asíncrona que el usuario asociado exista.
+async function validarUsuario(usuarioId) {
+    const db = obtenerDB();
+
+    const usuarioExiste = await db.collection('usuarios').findOne({
+        id: Number(usuarioId)
+    });
 
     if (!usuarioExiste) {
         throw new Error('El usuario asociado no existe');
@@ -66,7 +69,10 @@ function validarUsuario(usuarioId) {
 // CREAR INTERCAMBIOS
 // ======================================================
 
-export function crearIntercambio(datos) {
+export async function crearIntercambio(datos) {
+    const db = obtenerDB();
+    const coleccion = db.collection('intercambios');
+
     const {
         tipo,
         usuarioId,
@@ -92,11 +98,21 @@ export function crearIntercambio(datos) {
     // Validamos el tipo, la modalidad y el usuario.
     const tipoValidado = validarTipo(tipo);
     const modalidadValidada = validarModalidad(modalidad);
-    validarUsuario(usuarioId);
+    await validarUsuario(usuarioId);
+
+    // Calculamos el siguiente identificador numérico.
+    const ultimoIntercambio = await coleccion.findOne(
+        {},
+        { sort: { id: -1 } }
+    );
+
+    const nuevoId = ultimoIntercambio
+        ? ultimoIntercambio.id + 1
+        : 1;
 
     // Creamos el nuevo intercambio.
     const nuevoIntercambio = {
-        id: generarIntercambioId(),
+        id: nuevoId,
         tipo: tipoValidado,
         usuarioId: Number(usuarioId),
         idiomaOfrecido: idiomaOfrecido.trim(),
@@ -106,7 +122,8 @@ export function crearIntercambio(datos) {
         fechaCreacion: new Date().toISOString().split('T')[0]
     };
 
-    intercambios.push(nuevoIntercambio);
+    // Insertamos el intercambio en MongoDB.
+    await coleccion.insertOne(nuevoIntercambio);
 
     return nuevoIntercambio;
 }
@@ -115,22 +132,29 @@ export function crearIntercambio(datos) {
 // EDITAR INTERCAMBIOS
 // ======================================================
 
-export function editarIntercambio(id, datos) {
-    const intercambio = buscarIntercambio(id);
+export async function editarIntercambio(id, datos) {
+    const db = obtenerDB();
+    const coleccion = db.collection('intercambios');
+
+    // Buscamos el intercambio que queremos modificar.
+    const intercambio = await buscarIntercambio(id);
 
     if (!intercambio) {
         throw new Error('Intercambio no encontrado');
     }
 
+    // Preparamos los campos que se van a actualizar.
+    const cambios = {};
+
     // Actualizamos el tipo si se ha proporcionado.
     if (datos.tipo !== undefined) {
-        intercambio.tipo = validarTipo(datos.tipo);
+        cambios.tipo = validarTipo(datos.tipo);
     }
 
     // Actualizamos el usuario asociado.
     if (datos.usuarioId !== undefined) {
-        validarUsuario(datos.usuarioId);
-        intercambio.usuarioId = Number(datos.usuarioId);
+        await validarUsuario(datos.usuarioId);
+        cambios.usuarioId = Number(datos.usuarioId);
     }
 
     // Actualizamos los idiomas.
@@ -139,7 +163,7 @@ export function editarIntercambio(id, datos) {
             throw new Error('El idioma ofrecido no puede estar vacío');
         }
 
-        intercambio.idiomaOfrecido = datos.idiomaOfrecido.trim();
+        cambios.idiomaOfrecido = datos.idiomaOfrecido.trim();
     }
 
     if (datos.idiomaBuscado !== undefined) {
@@ -147,12 +171,12 @@ export function editarIntercambio(id, datos) {
             throw new Error('El idioma buscado no puede estar vacío');
         }
 
-        intercambio.idiomaBuscado = datos.idiomaBuscado.trim();
+        cambios.idiomaBuscado = datos.idiomaBuscado.trim();
     }
 
     // Actualizamos la modalidad.
     if (datos.modalidad !== undefined) {
-        intercambio.modalidad = validarModalidad(datos.modalidad);
+        cambios.modalidad = validarModalidad(datos.modalidad);
     }
 
     // Actualizamos la descripción.
@@ -161,35 +185,47 @@ export function editarIntercambio(id, datos) {
             throw new Error('La descripción no puede estar vacía');
         }
 
-        intercambio.descripcion = datos.descripcion.trim();
+        cambios.descripcion = datos.descripcion.trim();
     }
 
-    return intercambio;
+    // Guardamos los cambios en MongoDB.
+    await coleccion.updateOne(
+        { id: Number(id) },
+        { $set: cambios }
+    );
+
+    // Devolvemos el intercambio actualizado.
+    return await buscarIntercambio(id);
 }
 
 // ======================================================
 // ELIMINAR INTERCAMBIOS
 // ======================================================
 
-export function eliminarIntercambio(id) {
-    // Buscamos el intercambio que queremos eliminar.
-    const indice = intercambios.findIndex(
-        intercambio => intercambio.id === Number(id)
-    );
+export async function eliminarIntercambio(id) {
+    const db = obtenerDB();
 
-    if (indice === -1) {
+    const intercambios = db.collection('intercambios');
+    const seleccionados = db.collection('seleccionados');
+
+    // Buscamos el intercambio que queremos eliminar.
+    const intercambio = await intercambios.findOne({
+        id: Number(id)
+    });
+
+    if (!intercambio) {
         throw new Error('Intercambio no encontrado');
     }
 
     // Eliminamos también el intercambio de favoritos, si existe.
-    const indiceSeleccionado = seleccionados.findIndex(
-        item => item.id === Number(id)
-    );
+    await seleccionados.deleteOne({
+        id: Number(id)
+    });
 
-    if (indiceSeleccionado !== -1) {
-        seleccionados.splice(indiceSeleccionado, 1);
-    }
+    // Eliminamos el intercambio de MongoDB.
+    await intercambios.deleteOne({
+        id: Number(id)
+    });
 
-    // Eliminamos y devolvemos el intercambio.
-    return intercambios.splice(indice, 1)[0];
+    return intercambio;
 }

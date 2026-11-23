@@ -1,73 +1,122 @@
 
-import {
-    usuarios,
-    intercambios,
-    seleccionados,
-    generarUsuarioId
-} from '../data/memoria.js';
+import { obtenerDB } from '../config/db.js';
+import bcrypt from 'bcrypt';
+
+// Número de rondas utilizado para generar los hashes.
+const SALT_ROUNDS = 12;
+
+// ======================================================
+// VALIDAR IDENTIFICADORES
+// ======================================================
+
+// Comprueba que el identificador recibido sea un número válido.
+function validarId(id) {
+    const idNumerico = Number(id);
+
+    if (!Number.isInteger(idNumerico) || idNumerico <= 0) {
+        throw new Error('El identificador del usuario no es válido');
+    }
+
+    return idNumerico;
+}
 
 // ======================================================
 // CONSULTAR Y BUSCAR USUARIOS
 // ======================================================
 
-// Devuelve todos los usuarios registrados.
-export function consultarUsuarios() {
-    return usuarios;
+// Devuelve todos los usuarios de MongoDB.
+export async function consultarUsuarios() {
+    const db = obtenerDB();
+
+    return await db.collection('usuarios')
+        .find({})
+        .toArray();
 }
 
 // Busca un usuario por su identificador numérico.
-export function buscarUsuario(id) {
-    return usuarios.find(usuario => usuario.id === Number(id));
+export async function buscarUsuario(id) {
+    const db = obtenerDB();
+    const idNumerico = validarId(id);
+
+    return await db.collection('usuarios').findOne({
+        id: idNumerico
+    });
 }
 
-
-// Buscar usuario por email.
-export function buscarUsuarioPorEmail(email) {
-    // Comprobamos que se haya proporcionado un correo.
-    if (!email?.trim()) {
+// Busca un usuario por su correo electrónico.
+export async function buscarUsuarioPorEmail(email) {
+    // Comprobamos que el correo sea una cadena válida.
+    if (typeof email !== 'string' || !email.trim()) {
         throw new Error('El correo electrónico es obligatorio');
     }
 
-    // Buscamos el usuario sin distinguir mayúsculas y minúsculas.
+    const db = obtenerDB();
+
+    // Normalizamos el correo.
     const emailNormalizado = email.trim().toLowerCase();
 
-    return usuarios.find(
-        usuario => usuario.email.toLowerCase() === emailNormalizado
-    );
+    return await db.collection('usuarios').findOne({
+        email: emailNormalizado
+    });
 }
 
 // ======================================================
 // CREAR USUARIOS
 // ======================================================
 
-export function crearUsuario(datos) {
+export async function crearUsuario(datos) {
+    const db = obtenerDB();
+    const coleccion = db.collection('usuarios');
+
+    // Comprobamos que se hayan recibido los datos.
+    if (!datos || typeof datos !== 'object') {
+        throw new Error('Los datos del usuario no son válidos');
+    }
+
     const { nombre, email, password } = datos;
 
     // Comprobamos los campos obligatorios.
-    if (!nombre?.trim() || !email?.trim() || !password) {
+    if (
+        typeof nombre !== 'string' || !nombre.trim() ||
+        typeof email !== 'string' || !email.trim() ||
+        typeof password !== 'string' || !password.trim()
+    ) {
         throw new Error('Nombre, email y contraseña son obligatorios');
     }
 
-    // Comprobamos que el correo no esté registrado.
+    // Normalizamos el correo electrónico.
     const emailNormalizado = email.trim().toLowerCase();
 
-    const emailExiste = usuarios.some(
-        usuario => usuario.email.toLowerCase() === emailNormalizado
-    );
+    // Comprobamos que el correo no esté registrado.
+    const emailExiste = await coleccion.findOne({
+        email: emailNormalizado
+    });
 
     if (emailExiste) {
         throw new Error('Ya existe un usuario con ese correo electrónico');
     }
 
+    // Calculamos el siguiente identificador numérico.
+    const ultimoUsuario = await coleccion.findOne(
+        {},
+        { sort: { id: -1 } }
+    );
+
+    const nuevoId = ultimoUsuario ? ultimoUsuario.id + 1 : 1;
+
+    // Generamos el hash de la contraseña antes de guardarla.
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
     // Creamos el nuevo usuario.
     const nuevoUsuario = {
-        id: generarUsuarioId(),
+        id: nuevoId,
         nombre: nombre.trim(),
         email: emailNormalizado,
-        password
+        password: passwordHash
     };
 
-    usuarios.push(nuevoUsuario);
+    // Insertamos el usuario en MongoDB.
+    await coleccion.insertOne(nuevoUsuario);
 
     return nuevoUsuario;
 }
@@ -76,94 +125,134 @@ export function crearUsuario(datos) {
 // EDITAR USUARIOS
 // ======================================================
 
-export function editarUsuario(id, datos) {
-    const usuario = buscarUsuario(id);
+export async function editarUsuario(id, datos) {
+    const db = obtenerDB();
+    const coleccion = db.collection('usuarios');
+
+    // Validamos el identificador.
+    const idNumerico = validarId(id);
+
+    // Comprobamos que se hayan recibido los datos.
+    if (!datos || typeof datos !== 'object') {
+        throw new Error('Los datos de actualización no son válidos');
+    }
+
+    // Buscamos el usuario que queremos modificar.
+    const usuario = await buscarUsuario(idNumerico);
 
     if (!usuario) {
         throw new Error('Usuario no encontrado');
     }
 
+    // Preparamos los campos que se van a actualizar.
+    const cambios = {};
+
     // Validamos el correo si se quiere modificar.
     if (datos.email !== undefined) {
-        if (!datos.email.trim()) {
+        if (typeof datos.email !== 'string' || !datos.email.trim()) {
             throw new Error('El correo no puede estar vacío');
         }
 
         const emailNormalizado = datos.email.trim().toLowerCase();
 
-        const emailExiste = usuarios.some(
-            otro => otro.id !== usuario.id &&
-                otro.email.toLowerCase() === emailNormalizado
-        );
+        // Comprobamos que otro usuario no tenga ese correo.
+        const emailExiste = await coleccion.findOne({
+            email: emailNormalizado,
+            id: { $ne: idNumerico }
+        });
 
         if (emailExiste) {
             throw new Error('Ya existe otro usuario con ese correo electrónico');
         }
 
-        usuario.email = emailNormalizado;
+        cambios.email = emailNormalizado;
     }
 
-    // Actualizamos el nombre si se ha proporcionado.
+    // Validamos y actualizamos el nombre.
     if (datos.nombre !== undefined) {
-        if (!datos.nombre.trim()) {
+        if (typeof datos.nombre !== 'string' || !datos.nombre.trim()) {
             throw new Error('El nombre no puede estar vacío');
         }
 
-        usuario.nombre = datos.nombre.trim();
+        cambios.nombre = datos.nombre.trim();
     }
 
-    // Actualizamos la contraseña si se ha proporcionado.
+    // Validamos y actualizamos la contraseña.
     if (datos.password !== undefined) {
-        if (!datos.password) {
+        if (typeof datos.password !== 'string' || !datos.password.trim()) {
             throw new Error('La contraseña no puede estar vacía');
         }
 
-        usuario.password = datos.password;
+        // Generamos un nuevo hash para la contraseña modificada.
+        cambios.password = await bcrypt.hash(
+            datos.password,
+            SALT_ROUNDS
+        );
     }
 
-    return usuario;
+    // Evitamos ejecutar una actualización sin ningún cambio.
+    if (Object.keys(cambios).length === 0) {
+        throw new Error('No se han indicado campos para actualizar');
+    }
+
+    // Guardamos los cambios en MongoDB.
+    await coleccion.updateOne(
+        { id: idNumerico },
+        { $set: cambios }
+    );
+
+    // Devolvemos el usuario actualizado.
+    return await buscarUsuario(idNumerico);
 }
 
 // ======================================================
 // ELIMINAR USUARIOS
 // ======================================================
 
-export function eliminarUsuario(id) {
-    // Buscamos el usuario que queremos eliminar.
-    const indice = usuarios.findIndex(
-        usuario => usuario.id === Number(id)
-    );
+export async function eliminarUsuario(id) {
+    const db = obtenerDB();
 
-    if (indice === -1) {
+    const idNumerico = validarId(id);
+
+    const usuarios = db.collection('usuarios');
+    const intercambios = db.collection('intercambios');
+    const seleccionados = db.collection('seleccionados');
+
+    // Buscamos el usuario que queremos eliminar.
+    const usuario = await usuarios.findOne({
+        id: idNumerico
+    });
+
+    if (!usuario) {
         throw new Error('Usuario no encontrado');
     }
 
-    // Guardamos el ID del usuario antes de eliminarlo.
-    const usuarioId = usuarios[indice].id;
-
     // Buscamos los intercambios publicados por ese usuario.
-    const intercambiosUsuario = intercambios
-        .filter(intercambio => intercambio.usuarioId === usuarioId);
+    const intercambiosUsuario = await intercambios.find({
+        usuarioId: usuario.id
+    }).toArray();
 
-    // Eliminamos de favoritos los intercambios de ese usuario.
-    intercambiosUsuario.forEach(intercambio => {
-        const indiceSeleccionado = seleccionados.findIndex(
-            item => item.id === intercambio.id
-        );
+    // Obtenemos los identificadores de sus intercambios.
+    const idsIntercambios = intercambiosUsuario.map(
+        intercambio => intercambio.id
+    );
 
-        if (indiceSeleccionado !== -1) {
-            seleccionados.splice(indiceSeleccionado, 1);
-        }
-    });
-
-    // Eliminamos los intercambios publicados por ese usuario.
-    for (let i = intercambios.length - 1; i >= 0; i--) {
-        if (intercambios[i].usuarioId === usuarioId) {
-            intercambios.splice(i, 1);
-        }
+    // Eliminamos de favoritos los intercambios relacionados.
+    if (idsIntercambios.length > 0) {
+        await seleccionados.deleteMany({
+            id: { $in: idsIntercambios }
+        });
     }
 
-    // Eliminamos y devolvemos el usuario.
-    return usuarios.splice(indice, 1)[0];
-}
+    // Eliminamos los intercambios publicados por el usuario.
+    await intercambios.deleteMany({
+        usuarioId: usuario.id
+    });
 
+    // Eliminamos y devolvemos el usuario.
+    await usuarios.deleteOne({
+        id: usuario.id
+    });
+
+    return usuario;
+}
