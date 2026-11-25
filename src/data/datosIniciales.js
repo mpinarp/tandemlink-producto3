@@ -1,10 +1,14 @@
 
-/* ==========================================================================
-   DATOS INICIALES DE TANDEMLINK
-   Recuperados del Producto 2.
-   ========================================================================== */
+/**
+ * @fileoverview Datos iniciales de TandemLink recuperados del Producto 2.
+ * Contiene los usuarios y los intercambios utilizados como datos de ejemplo.
+ */
 
-// Usuarios iniciales.
+/**
+ * Usuarios iniciales de la aplicación.
+ *
+ * @type {Array<Object>}
+ */
 export const usuariosIniciales = [
     {
         id: 1,
@@ -26,7 +30,14 @@ export const usuariosIniciales = [
     }
 ];
 
-// Intercambios iniciales.
+/**
+ * Intercambios iniciales de la aplicación.
+ *
+ * Cada intercambio contiene información sobre el tipo de publicación,
+ * los idiomas, la modalidad, la descripción y su fecha de creación.
+ *
+ * @type {Array<Object>}
+ */
 export const intercambiosIniciales = [
     {
         id: 1,
@@ -59,4 +70,3 @@ export const intercambiosIniciales = [
         fechaCreacion: "2026-10-17"
     }
 ];
-

@@ -5,7 +5,12 @@ import { obtenerDB } from '../config/db.js';
 // CONSULTAR Y BUSCAR INTERCAMBIOS
 // ======================================================
 
-// Devuelve todos los intercambios de MongoDB.
+/**
+ * Obtiene todos los intercambios almacenados en MongoDB.
+ *
+ * @async
+ * @returns {Promise<Object[]>} Lista de intercambios.
+ */
 export async function consultarIntercambios() {
     const db = obtenerDB();
 
@@ -14,7 +19,13 @@ export async function consultarIntercambios() {
         .toArray();
 }
 
-// Busca un intercambio por su identificador numérico.
+/**
+ * Busca un intercambio mediante su identificador numérico.
+ *
+ * @async
+ * @param {number|string} id - Identificador del intercambio.
+ * @returns {Promise<Object|null>} Intercambio encontrado o null si no existe.
+ */
 export async function buscarIntercambio(id) {
     const db = obtenerDB();
 
@@ -27,7 +38,16 @@ export async function buscarIntercambio(id) {
 // VALIDACIONES
 // ======================================================
 
-// Comprueba y normaliza el tipo de intercambio.
+/**
+ * Valida y normaliza el tipo de intercambio.
+ *
+ * Admite los valores oferta y petición. Para petición,
+ * acepta la palabra con o sin tilde.
+ *
+ * @param {string} tipo - Tipo de intercambio recibido.
+ * @returns {string} Tipo de intercambio normalizado.
+ * @throws {Error} Si el tipo no es oferta o petición.
+ */
 function validarTipo(tipo) {
     const valor = tipo?.trim().toLowerCase();
 
@@ -41,7 +61,13 @@ function validarTipo(tipo) {
     throw new Error('El tipo debe ser oferta o petición');
 }
 
-// Comprueba y normaliza la modalidad.
+/**
+ * Valida y normaliza la modalidad de un intercambio.
+ *
+ * @param {string} modalidad - Modalidad recibida.
+ * @returns {string} Modalidad normalizada.
+ * @throws {Error} Si la modalidad no es presencial, online o ambas.
+ */
 function validarModalidad(modalidad) {
     const valor = modalidad?.trim().toLowerCase();
 
@@ -52,7 +78,17 @@ function validarModalidad(modalidad) {
     throw new Error('La modalidad debe ser presencial, online o ambas');
 }
 
-// Comprueba de forma asíncrona que el usuario asociado exista.
+/**
+ * Comprueba que exista el usuario asociado al intercambio.
+ *
+ * Consulta la colección de usuarios de MongoDB mediante
+ * el identificador numérico proporcionado.
+ *
+ * @async
+ * @param {number|string} usuarioId - Identificador del usuario.
+ * @returns {Promise<void>} Promesa que finaliza si el usuario existe.
+ * @throws {Error} Si el usuario asociado no existe.
+ */
 async function validarUsuario(usuarioId) {
     const db = obtenerDB();
 
@@ -69,6 +105,24 @@ async function validarUsuario(usuarioId) {
 // CREAR INTERCAMBIOS
 // ======================================================
 
+/**
+ * Crea un intercambio nuevo en MongoDB.
+ *
+ * Valida los campos, el tipo, la modalidad y el usuario asociado.
+ * Genera un identificador numérico y registra la fecha de creación.
+ *
+ * @async
+ * @param {Object} datos - Datos del intercambio que se va a crear.
+ * @param {string} datos.tipo - Tipo de intercambio: oferta o petición.
+ * @param {number|string} datos.usuarioId - Identificador del usuario.
+ * @param {string} datos.idiomaOfrecido - Idioma que se ofrece.
+ * @param {string} datos.idiomaBuscado - Idioma que se busca.
+ * @param {string} datos.modalidad - Modalidad del intercambio.
+ * @param {string} datos.descripcion - Descripción del intercambio.
+ * @returns {Promise<Object>} Intercambio creado.
+ * @throws {Error} Si faltan campos, las validaciones fallan
+ * o el usuario asociado no existe.
+ */
 export async function crearIntercambio(datos) {
     const db = obtenerDB();
     const coleccion = db.collection('intercambios');
@@ -132,6 +186,25 @@ export async function crearIntercambio(datos) {
 // EDITAR INTERCAMBIOS
 // ======================================================
 
+/**
+ * Actualiza los campos de un intercambio existente.
+ *
+ * Permite modificar el tipo, el usuario asociado, los idiomas,
+ * la modalidad y la descripción.
+ *
+ * @async
+ * @param {number|string} id - Identificador del intercambio.
+ * @param {Object} datos - Campos que se quieren actualizar.
+ * @param {string} [datos.tipo] - Nuevo tipo de intercambio.
+ * @param {number|string} [datos.usuarioId] - Nuevo usuario asociado.
+ * @param {string} [datos.idiomaOfrecido] - Nuevo idioma ofrecido.
+ * @param {string} [datos.idiomaBuscado] - Nuevo idioma buscado.
+ * @param {string} [datos.modalidad] - Nueva modalidad.
+ * @param {string} [datos.descripcion] - Nueva descripción.
+ * @returns {Promise<Object>} Intercambio actualizado.
+ * @throws {Error} Si el intercambio no existe o alguno de los
+ * campos proporcionados no es válido.
+ */
 export async function editarIntercambio(id, datos) {
     const db = obtenerDB();
     const coleccion = db.collection('intercambios');
@@ -202,6 +275,17 @@ export async function editarIntercambio(id, datos) {
 // ELIMINAR INTERCAMBIOS
 // ======================================================
 
+/**
+ * Elimina un intercambio y su registro de favoritos, si existe.
+ *
+ * Primero comprueba que el intercambio exista, elimina su registro
+ * de seleccionados y finalmente elimina el intercambio.
+ *
+ * @async
+ * @param {number|string} id - Identificador del intercambio.
+ * @returns {Promise<Object>} Intercambio eliminado.
+ * @throws {Error} Si el intercambio no existe.
+ */
 export async function eliminarIntercambio(id) {
     const db = obtenerDB();
 

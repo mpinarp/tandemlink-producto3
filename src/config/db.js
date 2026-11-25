@@ -5,7 +5,18 @@ import { MongoClient } from 'mongodb';
 let cliente;
 let baseDatos;
 
-// Función para conectar con MongoDB.
+/**
+ * Establece la conexión con MongoDB y selecciona la base de datos.
+ *
+ * Obtiene la URI de conexión y el nombre de la base de datos
+ * desde las variables de entorno. Crea un cliente de MongoDB,
+ * establece la conexión y guarda la instancia de la base de datos
+ * para que pueda utilizarse desde otros módulos.
+ *
+ * @async
+ * @returns {Promise<import('mongodb').Db>} Promesa que devuelve la instancia de la base de datos conectada.
+ * @throws {Error} Si falta alguna variable de configuración o se produce un error de conexión.
+ */
 export async function conectarDB() {
     try {
         // Leemos las variables de entorno cuando ya están cargadas.
@@ -34,7 +45,15 @@ export async function conectarDB() {
     }
 }
 
-// Función para obtener la base de datos.
+/**
+ * Devuelve la instancia de la base de datos previamente conectada.
+ *
+ * Permite acceder a MongoDB desde los controladores y otros módulos
+ * sin tener que crear una nueva conexión cada vez.
+ *
+ * @returns {import('mongodb').Db} Instancia de la base de datos conectada.
+ * @throws {Error} Si se intenta acceder a la base de datos antes de establecer la conexión.
+ */
 export function obtenerDB() {
     if (!baseDatos) {
         throw new Error('La base de datos todavía no está conectada.');

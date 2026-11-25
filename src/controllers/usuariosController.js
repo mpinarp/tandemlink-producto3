@@ -9,7 +9,16 @@ const SALT_ROUNDS = 12;
 // VALIDAR IDENTIFICADORES
 // ======================================================
 
-// Comprueba que el identificador recibido sea un número válido.
+/**
+ * Valida y convierte un identificador a número.
+ *
+ * Comprueba que el identificador pueda convertirse en un número
+ * entero positivo. Si no cumple estas condiciones, lanza un error.
+ *
+ * @param {number|string} id - Identificador del usuario que se valida.
+ * @returns {number} Identificador convertido a número entero.
+ * @throws {Error} Si el identificador no es un entero positivo válido.
+ */
 function validarId(id) {
     const idNumerico = Number(id);
 
@@ -24,7 +33,15 @@ function validarId(id) {
 // CONSULTAR Y BUSCAR USUARIOS
 // ======================================================
 
-// Devuelve todos los usuarios de MongoDB.
+/**
+ * Consulta todos los usuarios almacenados en MongoDB.
+ *
+ * Obtiene los documentos de la colección usuarios y los devuelve
+ * en forma de array.
+ *
+ * @async
+ * @returns {Promise<Object[]>} Promesa que devuelve un array de usuarios.
+ */
 export async function consultarUsuarios() {
     const db = obtenerDB();
 
@@ -33,7 +50,16 @@ export async function consultarUsuarios() {
         .toArray();
 }
 
-// Busca un usuario por su identificador numérico.
+/**
+ * Busca un usuario por su identificador numérico.
+ *
+ * Valida el ID recibido y consulta la colección usuarios de MongoDB.
+ *
+ * @async
+ * @param {number|string} id - Identificador del usuario que se busca.
+ * @returns {Promise<Object|null>} Promesa que devuelve el usuario encontrado o null si no existe.
+ * @throws {Error} Si el identificador no es válido.
+ */
 export async function buscarUsuario(id) {
     const db = obtenerDB();
     const idNumerico = validarId(id);
@@ -43,7 +69,17 @@ export async function buscarUsuario(id) {
     });
 }
 
-// Busca un usuario por su correo electrónico.
+/**
+ * Busca un usuario mediante su correo electrónico.
+ *
+ * Comprueba que el correo sea válido, lo normaliza convirtiéndolo
+ * a minúsculas y eliminando espacios exteriores, y consulta MongoDB.
+ *
+ * @async
+ * @param {string} email - Correo electrónico del usuario que se busca.
+ * @returns {Promise<Object|null>} Promesa que devuelve el usuario encontrado o null si no existe.
+ * @throws {Error} Si el correo no se proporciona o no es válido.
+ */
 export async function buscarUsuarioPorEmail(email) {
     // Comprobamos que el correo sea una cadena válida.
     if (typeof email !== 'string' || !email.trim()) {
@@ -64,6 +100,21 @@ export async function buscarUsuarioPorEmail(email) {
 // CREAR USUARIOS
 // ======================================================
 
+/**
+ * Crea un nuevo usuario en MongoDB.
+ *
+ * Valida los datos recibidos, comprueba que el correo no esté
+ * registrado, genera un identificador numérico y cifra la contraseña
+ * mediante bcrypt antes de insertar el documento.
+ *
+ * @async
+ * @param {Object} datos - Datos del nuevo usuario.
+ * @param {string} datos.nombre - Nombre del usuario.
+ * @param {string} datos.email - Correo electrónico del usuario.
+ * @param {string} datos.password - Contraseña sin cifrar que se procesará mediante bcrypt.
+ * @returns {Promise<Object>} Promesa que devuelve el usuario creado.
+ * @throws {Error} Si los datos son inválidos, el correo ya existe o falla una operación.
+ */
 export async function crearUsuario(datos) {
     const db = obtenerDB();
     const coleccion = db.collection('usuarios');
@@ -125,6 +176,22 @@ export async function crearUsuario(datos) {
 // EDITAR USUARIOS
 // ======================================================
 
+/**
+ * Actualiza los datos de un usuario existente.
+ *
+ * Comprueba que el usuario exista, valida los campos que se desean
+ * modificar, verifica la unicidad del correo y cifra la contraseña
+ * si se solicita su actualización. Guarda los cambios en MongoDB.
+ *
+ * @async
+ * @param {number|string} id - Identificador del usuario que se modifica.
+ * @param {Object} datos - Campos que se desean actualizar.
+ * @param {string} [datos.nombre] - Nuevo nombre del usuario.
+ * @param {string} [datos.email] - Nuevo correo electrónico del usuario.
+ * @param {string} [datos.password] - Nueva contraseña del usuario.
+ * @returns {Promise<Object>} Promesa que devuelve el usuario actualizado.
+ * @throws {Error} Si el ID es inválido, el usuario no existe, los campos no son válidos, el correo está duplicado o no se indican cambios.
+ */
 export async function editarUsuario(id, datos) {
     const db = obtenerDB();
     const coleccion = db.collection('usuarios');
@@ -209,6 +276,18 @@ export async function editarUsuario(id, datos) {
 // ELIMINAR USUARIOS
 // ======================================================
 
+/**
+ * Elimina un usuario y sus datos relacionados.
+ *
+ * Localiza al usuario, elimina los favoritos relacionados con sus
+ * intercambios, elimina dichos intercambios y finalmente elimina
+ * el documento del usuario en MongoDB.
+ *
+ * @async
+ * @param {number|string} id - Identificador del usuario que se elimina.
+ * @returns {Promise<Object>} Promesa que devuelve el usuario eliminado.
+ * @throws {Error} Si el identificador no es válido o el usuario no existe.
+ */
 export async function eliminarUsuario(id) {
     const db = obtenerDB();
 
